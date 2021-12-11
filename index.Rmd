@@ -49,13 +49,13 @@ class_diag <- function(score, truth, positive, cutoff=.5){
 ## Sahith Kasireddy, sk48663
 
 ### Introduction 
-
-
+My dataset, hfi, was found from a list of common packaged datasets found in the Project1 Instructions link (I also used this dataset as in Projec1, but it was joined with another dataset then). I am really interested in cultures and the social and political systems of countries, so I was really excited to use this dataset. 
 ```{R}
 #Reading and Adjusting Dataset
 library(dplyr)
 library(tidyverse)
 hfi <- read.csv(file = 'hfi.csv')
+
 hfi <- hfi %>% rename("Country" = `countries`, "Year" = year, "Region" = region) %>% select(-c(1,3))
 hfi<- hfi %>% mutate_all(na_if,"")
 hfi<- hfi %>% mutate_all(na_if,"..")
@@ -66,12 +66,22 @@ hfi<- hfi%>%filter(!if_all(c(4:11), is.na))
 #Creation of A New Binary Variable: English-Speaking
 hfi<- hfi %>% mutate(English_Speaking= case_when(Country == "United States"|Country == "New Zealand"|Country == "United Kingdom"|Country == "Canada"|Country == "Singapore"|Country == "Australia"|Country == "Ireland"|Country == "Ireland"|Country == "Trinidad and Tobago"|Country == "Guyana"|Country == "Bahamas"|Country == "Belize"|Country == "Barbados" ~ 1, Country != "United States" & Country != "New Zealand" & Country != "United Kingdom" & Country != "Canada" & Country != "Singapore" & Country != "Australia" & Country != "Ireland" & Country != "Ireland" & Country != "Trinidad and Tobago" & Country != "Guyana" & Country != "Bahamas" & Country != "Belize" & Country != "Barbados" ~ 0))
 
+hfi %>% count()
+hfi$Year <- as.character(hfi$Year)
+
+hfi %>% group_by(Year) %>% summarise("Observations Per Group" = n())
+hfi %>% group_by(Country) %>% summarise("Observations Per Group"= n())
+hfi %>% group_by(Country) %>% summarise("Observations Per Group"= n()) %>% filter(`Observations Per Group` < 9)
+hfi %>% group_by(Region) %>% summarise("Observations Per Group" = n())  
+hfi %>% group_by(English_Speaking) %>% summarise("Observations Per Group" = n())
+
+
+
 #Creating New Dataset Without Any Categorical Variables or NA for Cluster Analysis
 hfi <- hfi %>% na.omit()
 hfinocat <- hfi %>% select(-c(1:3, 12))
-
-
 ```
+There are 1458 observations in total. The levels for each category and binary variables are displayed above. Almost every country has a frequency of 9 although there are a few countries, shown above, that have less than 9 (Belarus, Iraq, Sudan). The newly created binary variable, "English_Speaking" has a frequency count of 1260 for non-English Speaking (indicated by the 0), and 108 for English Speaking (indicated by the 1)
 
 ### Cluster Analysis
 
@@ -87,6 +97,7 @@ sil_width[i]<-mean(sil[,3]) #take averages (higher is better)
 ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
 
 #Pam Analysis
+
 pam1 <- hfinocat %>% pam(k=2) #use the pam function
 pam1
 
@@ -98,11 +109,9 @@ hfinocat%>%slice(pam1$id.med)
 library(GGally)
 pamclust %>% ggpairs(cols = 1:8, aes(color = cluster))
 
-
-
 ```
 
-Discussion of clustering here
+The best cluster would correspond with the greatest average silhouette width; this means that k=2 (k corresponds to the number of clusters) would be best to be used in PAM analysis. PAM assigns observations to clusters whose center is the closest. The means of the clusters for each numeric variable are shown as well as their mediods. The means do no vary that far from the mediods, indicating that PAM does a great job at centering the data observations close to mediods. The ggpairs graph shows that there are noticeably distinct clusters for the pf_government, ef_legal_gender, and pf_expression variables. The hf_score also has distinct clusters although not as distinct as the other variables listed. 
     
     
 ### Dimensionality Reduction with PCA
@@ -122,33 +131,34 @@ varprop=round(eigval/sum(eigval), 2) #proportion of var explained by each PC
 round(cumsum(eigval)/sum(eigval), 2) #cumulative proportion of variance
 
 #PC cumulative proportion graph
-ggplot() + geom_bar(aes(y=varprop, x=1:8), stat="identity") + xlab("") + geom_path(aes(y=varprop, x=1:8)) + 
-  geom_text(aes(x=1:8, y=varprop, label=round(varprop, 2)), vjust=1, col="white", size=5) + 
-  scale_y_continuous(breaks=seq(0, .6, .2), labels = scales::percent) + 
-  scale_x_continuous(breaks=1:8)
+#ggplot() + geom_bar(aes(y=varprop, x=1:8), stat="identity") + xlab("Principal Component Number") + geom_path(aes(y=varprop, x=1:8)) + 
+  #geom_text(aes(x=1:8, y=varprop, label=round(varprop, 2)), vjust=1, col="white", size=5) + 
+  #scale_y_continuous(breaks=seq(0, .6, .2), labels = scales::percent) + 
+  #scale_x_continuous(breaks=1:8)
+
+hfinocatdf<-data.frame(Country= hfi$Country, Year = hfi$Year, PC1=hfinocat_pca$scores[, 1],PC2=hfinocat_pca$scores[, 2])
+ggplot(hfinocatdf, aes(PC1, PC2)) + geom_point()
+
+hfinocatdf %>% head()
 
 
 ```
-From the graph, it is evident that the first 4 PCs would attain a cumulative proportion of 0.85; therefore, 5 PCs are good. The first PCA shows a positive relationship betweeen every variable (except ef_government). This is the general variation in the set. The second PCA shows that countries that have low pf_rol, ef_regulation, and bad human freedom scores overall, are good for other categories. The third 
+From the summary of the PCA data, It is evident that the first 4 PCs would attain a cumulative proportion of 0.85; therefore, 4 PCs are good to retain. The first PCA shows a positive relationship between every variable (except ef_government). This is the general variation in the set. The second PCA shows that observations that have low pf_rol, ef_regulation, and bad human freedom scores overall score higher in other categories. The third PCA shwows that countries with higher religious index scores tend to fair poorly in market regulation, government, and overall human freedom index. The fourth PCA shows that countries with high religious freedom, market regulation, and procedural justice scores fair poorly in being able to change gender and being able to organize social movements. The scores of the PCA are shown in the graph. It seems that most of the PC scores are clustered on the right side of the x-axis and between 0 to -2 on the PC2.
 
 ###  Linear Classifier
 
 ```{R}
 #Logistic Regression Analysis
 fit <- glm(English_Speaking ~ pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government + hf_score, data=hfi, family="binomial")
-score <- predict(fit, type="response")
-score %>% round(3) %>% head()
+probs <- predict(fit, type="response")
 
 #Class Diag Performance
-class_diag(score,hfi$English_Speaking,positive=1)
+class_diag(probs,hfi$English_Speaking,positive=1) 
 
 #Confusion Matrix
-y <- hfi$English_Speaking
-y_hat <- sample(c("English-Speaking","Not English-Speaking"), size=length(y), replace=T)
-y_hat <- factor(y_hat, levels=c("English-Speaking","Not English-Speaking"))
-table(actual = y, predicted = y_hat) %>% addmargins
+table(Actual = hfi$English_Speaking, Predicted = probs>.5) %>% addmargins
 
-#hfi %>% mutate(score=score) %>% ggplot(aes(pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government + hf_score,English_Speaking))+geom_point(aes(color=score>.5)) + geom_smooth(method="glm", se=F,method.args = list(family = "binomial"))+ylim(0,1)+geom_hline(yintercept=.5, lty=2)
+#hfi %>% mutate(probs=probs) %>% ggplot(aes(pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government + hf_score,English_Speaking))+geom_point(aes(color=score>.5)) + geom_smooth(method="glm", se=F,method.args = list(family = "binomial"))+ylim(0,1)+geom_hline(yintercept=.5, lty=2)
 
 ```
 
@@ -173,7 +183,7 @@ summarize_all(diags,mean)
 
 ```
 
-The AUC is 0.92, which indicates that the model is great (AUCs above .90 ar excellent). The model for cross-validation also seems to be great, considering that the AUC is 0.91073. 
+The logistic regression was used to predict how well the model could decide that an observation was English-Speaking from the binary variable "English_Speaking" using the other numeric response variables. The accuracy of the dataset is 0.9262, which is pretty good. The AUC is 0.92, which indicates that the model is great (AUCs above .90 ar excellent). The higher the AUC, the better a model is at detecting positive and negative classes (In this case, English-Speaking from Not English Speaking). The model for cross-validation also seems to be great, considering that the AUC is 0.91073. This means that the model is great at predicting new observations that it is not used to. It also means that the model has low overfitting. The confusion matrix also indicates that there are very few false positives (predicting English-Speaking when it is not) but a lot of false negatives (predicting not English Speaking when an observation actually is English-Speaking). 
 
 ### Non-Parametric Classifier
 
@@ -182,7 +192,7 @@ The AUC is 0.92, which indicates that the model is great (AUCs above .90 ar exce
 library(caret)
 knn_fit <- knn3(factor(English_Speaking==1,levels=c("TRUE","FALSE")) ~ pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government + hf_score, data=hfi, k=5)
 y_hat_knn <- predict(knn_fit,hfi)
-y_hat_knn
+y_hat_knn %>% head()
 
 #Confusion Matrix
 table(truth= factor(hfi$English_Speaking==1, levels=c("TRUE","FALSE")),
@@ -193,8 +203,7 @@ class_diag(y_hat_knn[,1],hfi$English_Speaking, positive=1)
 ```
 
 ```{R}
-
-#K-Fold Cross Validation
+#K-Fold using kNN Cross Validation
 k=10 #choose number of folds
 data<-hfi[sample(nrow(hfi)),] #randomly order rows
 folds<-cut(seq(1:nrow(hfi)),breaks=k,labels=F) #create 10 folds
@@ -215,29 +224,26 @@ summarize_all(diags,mean)
 
 The AUC is 0.9991 when using k-nearest neighbors for the Non-Parametric Classifier. This is excellent because is is almost near a perfect score of 1. The AUC of the cross-validation is also excellent because it is 0.99905. The confusion matrix indicates that there are very few false negatives and false positives. 
 
+The cross validation for the non-parametric classifier results in a greater AUC (0.99918) than the linear classifier (0.91073) for cross validation; therefore, this means that non-parametric classifications is better at predicting new estimates. The AUC value also indicates that there is very minimal overfitting. 
 
 ### Regression/Numeric Prediction
 
 ```{R}
-
 #Regression Tree
-library(rpart); library(rpart.plot)
-fit_tree<- rpart(English_Speaking~pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government + hf_score, data=hfi)
-rpart.plot(fit_tree)
-
-fit_tree <- train(English_Speaking~pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government + hf_score, data=hfi, method="rpart")
-
-fit_tree$bestTune
-
+library(rpart)
+library(rpart.plot)
+fit_tree <- train(hf_score~pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government,data=hfi, method="rpart")
 rpart.plot(fit_tree$finalModel)
 
 #MSE
-fit_MSE<-lm(hf_score~pf_religion + pf_expression + ef_government,data=hfi) 
+fit_MSE<-lm(hf_score~pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government,data=hfi) 
 yhat<-predict(fit_MSE) 
 mean((hfi$hf_score-yhat)^2)
+```
 
+```{R}
 #K-Fold Cross Validation & Average MSE
-k=5 #choose number of folds
+k=10 #choose number of folds
 data<-hfi[sample(nrow(hfi)),] #randomly order rows
 folds<-cut(seq(1:nrow(hfi)),breaks=k,labels=F) #create folds
 diags<-NULL
@@ -245,7 +251,7 @@ for(i in 1:k){
   train<-data[folds!=i,]
   test<-data[folds==i,]
   ## Fit linear regression model to training set
-  fit<-lm(hf_score~pf_religion + pf_expression + ef_government,data=hfi)
+  fit<-lm(hf_score~pf_religion + ef_legal_gender + pf_expression + pf_movement + pf_rol + ef_regulation + ef_government,data=hfi)
   ## Get predictions/y-hats on test set (fold i)
   yhat<-predict(fit,newdata=test)
   ## Compute prediction error (MSE) for fold i
@@ -253,14 +259,9 @@ for(i in 1:k){
 }
 
 mean(diags)
-
 ```
 
-```{R}
-
-```
-
-Discussion
+The regression tree shows that 20% of the data has a pf_rol value less than 6.3 and a pf_movement value less than 5.8 while 51% of the data has a pf_rol values less than 6.3 and a pf_movement value greater than 5.8. The last 29% of data has a pf_rol value greater than 6.3. Essentially, the regression tree divides the data best between two variables. MSE is the average squared difference between the estimated values and the actual value; a lower MSE value is better as it indicates that an estimation is very close to the actual values. The MSE is 0.0779776, which is very low. The average MSE across the folds from the cross validation was 0.07654436. Because my MSE in the cross validation was very low, this indicates that there is very minimal overfitting. 
 
 ### Python 
 
